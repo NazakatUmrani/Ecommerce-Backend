@@ -58,13 +58,17 @@ export const login = async (req, res) => {
     // Check if user exists
     let user = await User.findOne({ email: req.body.email });
     if (!user)
-      return res.status(400).json({ success: false, message: "Please enter valid credentials" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Please enter valid credentials" });
     const comparePassword = bcrypt.compareSync(
       req.body.password,
       user.password
     );
     if (!comparePassword)
-      return res.status(400).json({ success: false, message: "Please enter valid credentials" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Please enter valid credentials" });
 
     // Create and return a token
     const data = { user: { id: user.id } };
@@ -84,6 +88,61 @@ export const logout = (req, res) => {
   try {
     res.clearCookie("jwtToken");
     res.status(200).json({ success: true, message: "User logged out" });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "An internal server error occured",
+    });
+    console.log("Error in logout route", error);
+  }
+};
+
+export const forgetPassword = async (req, res) => {
+  try {
+    // If there are errors, return Bad request and the errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log(errors.array());
+      return res.status(400).json({
+        success: false,
+        message: "Validation errors",
+      });
+    }
+
+    // Check if user exists
+    let user = await User.findOne({ email: req.body.email });
+    if (!user)
+      return res
+        .status(400)
+        .json({ success: false, message: "Please enter valid credentials" });
+
+    const resetToken = user.getResetPasswordToken();
+    const resetPasswordUrl = `${req.protocol}://${req.get(
+      "host"
+    )}/password/reset/${resetToken}`;
+
+    const message = `Your password reset token is :- \n\n ${resetPasswordUrl} \n\nIf you have not requested this email then, please ignore it.`;
+
+    await sendEmail({
+      email: user.email,
+      subject: "Ecommerce password Recovery",
+      message,
+    }).catch(async (error) => {
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpire = undefined;
+      await user.save();
+
+      return res.status(500).json({
+        success: false,
+        message: "Email could not be sent",
+      });
+    });
+    
+    res.status(200).json({
+      success: true,
+      message: `Email sent to ${user.email} successfully `,
+    });
+
   } catch (error) {
     res.status(500).json({
       success: false,

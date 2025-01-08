@@ -27,5 +27,5 @@ app.use('/api/auth', authRoutes);
 
 // Listen on port
 app.listen(port, () => {
-  console.log(`WriteIt app listening at http://localhost:${port}`)
+  console.log(`Ecommerce app listening at http://localhost:${port}`)
 })
