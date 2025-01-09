@@ -9,6 +9,7 @@ import {
   updatePassword,
   getUserDetails,
   updateUser,
+  verifySignup,
 } from "../Controllers/auth.controller.js";
 import authenticate from "../Middleware/authenticate.js";
 
@@ -34,6 +35,16 @@ router.post(
       .withMessage("Role must be either 'user' or 'seller'"),
   ],
   signup
+);
+
+// Verify signup using: POST "/api/auth/signup/verify". No Auth required
+router.post(
+  "/signup/verify",
+  [
+    body("email", "Enter a valid email").isEmail(),
+    body("otp", "OTP must be 6 digits long").isLength({ min: 6, max: 6 }),
+  ],
+  verifySignup
 );
 
 // Login using: POST "/api/auth/login". No Auth required
