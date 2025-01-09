@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
 import User from "../Models/User.js";
-const JWT_SECRET = process.env.JWT_SECRET;
+const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
 const authenticate = async (req, res, next) => {
   try {
     // Get token from cookies and check if it exists
-    const token = req.cookies.jwtToken;
+    const token = req.cookies.accessToken;
     if (!token)
       return res.status(401).json({
         success: false,
@@ -13,7 +13,7 @@ const authenticate = async (req, res, next) => {
       });
     
     // Verify token and check if it is valid
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
     if (!decoded)
       return res.status(401).json({
         success: false,
@@ -25,7 +25,7 @@ const authenticate = async (req, res, next) => {
     if (!user || user.tokenVersion !== decoded.user.tokenVersion) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized - Token is no longer valid",
+        message: "Unauthorized - Token is no longer valid, please login again",
       });
     }
 

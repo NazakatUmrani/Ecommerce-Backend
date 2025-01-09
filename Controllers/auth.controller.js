@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import User from "../Models/User.js";
 import { generateTokenAndSetCookie } from "../Utils/generateTokenAndSetCookie.js";
 import sendEmail from "../Utils/sendEmail.js";
+import jwt from "jsonwebtoken";
 // const crypto = require("crypto");
 
 export const signup = async (req, res) => {
@@ -42,7 +43,7 @@ export const signup = async (req, res) => {
     await user.save();
 
     res
-      .status(200)
+      .status(201)
       .json({
         success: true,
         message: "User created - Must verify email with otp",
@@ -70,11 +71,11 @@ export const verifySignup = async (req, res) => {
     const { email, otp } = req.body;
 
     // Check if user exists
-    const user = await User.findOne({ email }).select("otp otpExpires tokenVersion verified");
+    const user = await User.findOne({ email }).select("otp otpExpires tokenVersion verified refreshToken");
     if (!user)
       return res
         .status(400)
-        .json({ success: false, message: "Email is invalid" });
+        .json({ success: false, message: "No user found with this email" });
     
     // Check if OTP is valid
     const isOtpValid = user.verifyOTP(otp);
@@ -83,16 +84,18 @@ export const verifySignup = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid OTP" });
 
-    // Clear the OTP and save the user
+    // Clear the OTP
     user.otp = undefined;
     user.otpExpires = undefined;
     user.verified = true;
-    await user.save();
-
+    
     // Create and return a token
     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
-    generateTokenAndSetCookie(data, res);
-    
+    const { refreshToken } = generateTokenAndSetCookie(data, res);
+    user.refreshToken = refreshToken;
+
+    await user.save();
+
     res.status(200).json({ success: true, message: "Email verified successfully" });
   } catch (error) {
     console.log("Error in signup route", error);
@@ -115,7 +118,7 @@ export const login = async (req, res) => {
     }
 
     // Check if user exists
-    let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified");
+    let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified refreshToken");
     if (!user)
       return res
         .status(400)
@@ -135,7 +138,7 @@ export const login = async (req, res) => {
 
       return res
         .status(400)
-        .json({ success: false, message: "Please verify your email" });
+        .json({ success: false, message: "Cannot login until you verify your email - OTP has been sent" });
     }
       
     // Check if password is correct
@@ -150,7 +153,10 @@ export const login = async (req, res) => {
 
     // Create and return a token
     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
-    generateTokenAndSetCookie(data, res);
+    const { refreshToken } = generateTokenAndSetCookie(data, res);
+    user.refreshToken = refreshToken;
+
+    await user.save();
 
     res.status(200).json({ success: true, message: "User signed in" });
   } catch (error) {
@@ -164,7 +170,8 @@ export const login = async (req, res) => {
 
 export const logout = (req, res) => {
   try {
-    res.clearCookie("jwtToken");
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
     res.status(200).json({ success: true, message: "User logged out" });
   } catch (error) {
     res.status(500).json({
@@ -174,6 +181,54 @@ export const logout = (req, res) => {
     console.log("Error in logout route", error);
   }
 };
+
+export const refreshToken = async (req, res) => {
+  try {
+    // Get token from cookies and check if it exists
+    const incomingToken = req.cookies.refreshToken;
+    if (!incomingToken)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - No refresh token in cookies, Redirect to login",
+      });
+    
+    // Verify token and check if it is valid
+    const decoded = jwt.verify(incomingToken, process.env.REFRESH_TOKEN_SECRET);
+    if (!decoded)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - Invalid refresh token",
+      });
+    
+    // Check if user exists and tokenVersion is same
+    const user = await User.findById(decoded.user.id).select('tokenVersion');
+    if (!user)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - User does not exist, please login again",
+      });
+    if (user.tokenVersion !== decoded.user.tokenVersion)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized - Token is no longer valid, please login again",
+      });
+    
+    // Create and return a token
+    const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
+    const { refreshToken } = generateTokenAndSetCookie(data, res);
+    user.refreshToken = refreshToken;
+
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Token refreshed" });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "An internal server error occured",
+    });
+    console.log("Error in refreshToken route", error);
+  }
+}
 
 export const forgetPassword = async (req, res) => {
   try {
@@ -234,11 +289,11 @@ export const resetPassword = async (req, res) => {
     const { email, otp, password } = req.body;
 
     // Check if user exists
-    const user = await User.findOne({ email }).select("password otp otpExpires tokenVersion");
+    const user = await User.findOne({ email }).select("password otp otpExpires tokenVersion verified refreshToken");
     if (!user)
       return res
         .status(400)
-        .json({ success: false, message: "Email is invalid" });
+        .json({ success: false, message: "No user found with this email" });
 
     // Check if OTP is valid
     const isOtpValid = user.verifyOTP(otp);
@@ -257,11 +312,13 @@ export const resetPassword = async (req, res) => {
 
     // Increment the tokenVersion and save the user
     user.incrementTokenVersion();
-    await user.save();
 
     // Create and return a token
     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
-    generateTokenAndSetCookie(data, res);
+    const { refreshToken } = generateTokenAndSetCookie(data, res);
+    user.refreshToken = refreshToken;
+
+    await user.save();
 
     res
       .status(200)
@@ -327,7 +384,7 @@ export const updatePassword = async (req, res) => {
 export const getUserDetails = async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select(
-      "-password -otp -otpExpires -tokenVersion -verified"
+      "-password -otp -otpExpires -tokenVersion -verified -refreshToken"
     );
     if (!user) {
       return res
@@ -362,7 +419,7 @@ export const updateUser = async (req, res) => {
     }
 
     // Check if user exists
-    const user = await User.findById(req.user.id).select("-password -otp -otpExpires -tokenVersion -verified");
+    const user = await User.findById(req.user.id).select("-password -otp -otpExpires -tokenVersion -verified -refreshToken");
     if (!user) {
       return res
         .status(404)

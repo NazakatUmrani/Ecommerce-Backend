@@ -35,6 +35,9 @@ const UserSchema = new Schema(
       type: Number,
       default: 1,
     },
+    refreshToken: {
+      type: String,
+    },
     otp: {
       type: String,
     },

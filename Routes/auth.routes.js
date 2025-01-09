@@ -10,6 +10,7 @@ import {
   getUserDetails,
   updateUser,
   verifySignup,
+  refreshToken,
 } from "../Controllers/auth.controller.js";
 import authenticate from "../Middleware/authenticate.js";
 
@@ -61,6 +62,9 @@ router.post(
 
 // Logout using: GET "/api/auth/logout". No Auth required
 router.get("/logout", logout);
+
+// Refresh token using: POST "/api/auth/refresh-token". No Auth required
+router.post( "/refresh-token", refreshToken );
 
 // Forget Password using: POST "/api/auth/password/forget". No Auth required
 router.post(
