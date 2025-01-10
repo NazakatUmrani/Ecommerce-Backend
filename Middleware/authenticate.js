@@ -33,7 +33,7 @@ const authenticate = async (req, res, next) => {
     req.user = { id: decoded.user.id };
     next();
   } catch (error) {
-    console.log("Error in authenticating", error);
+    console.error("Error in authenticating", error);
     res.status(401).json({
       success: false,
       message: "Please authenticate using a valid token",

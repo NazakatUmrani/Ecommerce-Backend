@@ -1,6 +1,4 @@
 import mongoose from "mongoose";
-import crypto from "crypto";
-
 const { Schema } = mongoose;
 
 const UserSchema = new Schema(
@@ -39,7 +37,7 @@ const UserSchema = new Schema(
       type: String,
     },
     otp: {
-      type: String,
+      type: Number,
     },
     otpExpires: {
       type: Date,
@@ -54,21 +52,34 @@ const UserSchema = new Schema(
 
 // Middleware to capitalize first letter of first and last name
 UserSchema.pre("save", async function (next) {
-  this.firstName =
-    this.firstName.charAt(0).toUpperCase() +
-    this.firstName.slice(1).toLowerCase();
-  this.lastName =
-    this.lastName.charAt(0).toUpperCase() +
-    this.lastName.slice(1).toLowerCase();
+  const avatarDomain = "https://avatar.iran.liara.run";
+  
+  if (this.isModified("firstName")) {
+    this.firstName =
+      this.firstName.charAt(0).toUpperCase() +
+      this.firstName.slice(1).toLowerCase();
+  }
+  if (this.isModified("lastName")) {
+    this.lastName =
+      this.lastName.charAt(0).toUpperCase() +
+      this.lastName.slice(1).toLowerCase();
+  }
 
-  const username = `${this.firstName}+${this.lastName}`;
-  this.profilePic = `https://avatar.iran.liara.run/username?username=${username}`;
+  if (this.isModified("firstName") || this.isModified("lastName")) {
+    const username = `${this.firstName}+${this.lastName}`;
+    const newProfilePic = `${avatarDomain}/username?username=${username}`;
+    
+    if (!this.profilePic || this.profilePic.startsWith(avatarDomain)) {
+      this.profilePic = newProfilePic;
+    }
+  }
+
   next();
 });
 
 // Method to generate OTP
 UserSchema.methods.generateOTP = function () {
-  const otp = crypto.randomBytes(3).toString("hex"); // Generates a 6-digit OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString(); // Generates a 6-digit numeric OTP
   this.otp = otp;
   this.otpExpires = Date.now() + 10 * 60 * 1000; // OTP expires in 10 minutes
   return otp;

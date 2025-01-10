@@ -4,13 +4,18 @@ import User from "../Models/User.js";
 import { generateTokenAndSetCookie } from "../Utils/generateTokenAndSetCookie.js";
 import sendEmail from "../Utils/sendEmail.js";
 import jwt from "jsonwebtoken";
+import uploadToAzure from '../Utils/uploadToAzureStorage.js';
 // const crypto = require("crypto");
 
 export const signup = async (req, res) => {
   try {
+    console.log(req.body);
+    console.log(req.file);
+    // console.log(req);
     // If there are errors, return Bad request and the errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({
         success: false,
         message: `Validation errors - ${errors.array()[0].msg}`,
@@ -24,11 +29,15 @@ export const signup = async (req, res) => {
 
     // Create a new user
     let user = await User.findOne({ email: req.body.email }).select("email");
-    if (user)
+    console.log(user);
+    console.log(req.body.email);
+    if (user){
+      console.log('User already exists:', user);
       return res.status(400).json({
         success: false,
         message: "Sorry a user with this email already exists",
       });
+    }
     user = User(req.body);
 
     // Generate OTP and send email
@@ -40,6 +49,14 @@ export const signup = async (req, res) => {
       subject: "OTP for email verification",
       message,
     })
+
+    // Conditionally store profile pic in azure blob storage
+    if (req.file) {
+      console.log("About to upload to azure");
+      user.profilePic = await uploadToAzure(req.file, user.email);
+      console.log("uploaded to azure");
+    }
+    
     await user.save();
 
     res
@@ -49,7 +66,7 @@ export const signup = async (req, res) => {
         message: "User created - Must verify email with otp",
       });
   } catch (error) {
-    console.log("Error in signup route", error);
+    console.error("Error in signup route", error);
     res.status(500).json({
       success: false,
       message: "An internal server error occured",
@@ -60,6 +77,7 @@ export const signup = async (req, res) => {
 export const verifySignup = async (req, res) => {
   try {
     // If there are errors, return Bad request and the errors
+    console.log(req.body);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -67,7 +85,6 @@ export const verifySignup = async (req, res) => {
         message: `Validation errors - ${errors.array()[0].msg}`,
       });
     }
-
     const { email, otp } = req.body;
 
     // Check if user exists
@@ -77,8 +94,14 @@ export const verifySignup = async (req, res) => {
         .status(400)
         .json({ success: false, message: "No user found with this email" });
     
+    // Check if user is already verified
+    if (user.verified)
+      return res
+        .status(200)
+        .json({ success: true, message: "User is already verified" });
+
     // Check if OTP is valid
-    const isOtpValid = user.verifyOTP(otp);
+    const isOtpValid = user.verifyOTP(Number(otp));
     if (!isOtpValid)
       return res
         .status(400)
@@ -98,7 +121,7 @@ export const verifySignup = async (req, res) => {
 
     res.status(200).json({ success: true, message: "Email verified successfully" });
   } catch (error) {
-    console.log("Error in signup route", error);
+    console.error("Error in signup route", error);
     res.status(500).json({
       success: false,
       message: "An internal server error occured",
@@ -118,7 +141,7 @@ export const login = async (req, res) => {
     }
 
     // Check if user exists
-    let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified refreshToken");
+    let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified refreshToken email");
     if (!user)
       return res
         .status(400)
@@ -135,7 +158,8 @@ export const login = async (req, res) => {
         subject: "OTP for email verification",
         message,
       })
-
+      
+      await user.save();
       return res
         .status(400)
         .json({ success: false, message: "Cannot login until you verify your email - OTP has been sent" });
@@ -155,12 +179,12 @@ export const login = async (req, res) => {
     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
     const { refreshToken } = generateTokenAndSetCookie(data, res);
     user.refreshToken = refreshToken;
-
+    
     await user.save();
 
     res.status(200).json({ success: true, message: "User signed in" });
   } catch (error) {
-    console.log("Error in signin route", error);
+    console.error("Error in signin route", error);
     res.status(500).json({
       success: false,
       message: "An internal server error occured",
@@ -178,7 +202,7 @@ export const logout = (req, res) => {
       success: false,
       message: "An internal server error occured",
     });
-    console.log("Error in logout route", error);
+    console.error("Error in logout route", error);
   }
 };
 
@@ -226,7 +250,7 @@ export const refreshToken = async (req, res) => {
       success: false,
       message: "An internal server error occured",
     });
-    console.log("Error in refreshToken route", error);
+    console.error("Error in refreshToken route", error);
   }
 }
 
@@ -235,7 +259,7 @@ export const forgetPassword = async (req, res) => {
     // If there are errors, return Bad request and the errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log(errors.array());
+      console.error(errors.array());
       return res.status(400).json({
         success: false,
         message: `Validation errors - ${errors.array()[0].msg}`,
@@ -270,7 +294,7 @@ export const forgetPassword = async (req, res) => {
       success: false,
       message: "An internal server error occured",
     });
-    console.log("Error in forgetPassword route", error);
+    console.error("Error in forgetPassword route", error);
   }
 };
 
@@ -279,7 +303,7 @@ export const resetPassword = async (req, res) => {
     // If there are errors, return Bad request and the errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log(errors.array());
+      console.error(errors.array());
       return res.status(400).json({
         success: false,
         message: `Validation errors - ${errors.array()[0].msg}`,
@@ -328,7 +352,7 @@ export const resetPassword = async (req, res) => {
       success: false,
       message: "An internal server error occurred",
     });
-    console.log("Error in resetPassword route", error);
+    console.error("Error in resetPassword route", error);
   }
 };
 
@@ -337,7 +361,7 @@ export const updatePassword = async (req, res) => {
     // If there are errors, return Bad request and the errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log(errors.array());
+      console.error(errors.array());
       return res.status(400).json({
         success: false,
         message: `Validation errors - ${errors.array()[0].msg}`,
@@ -377,7 +401,7 @@ export const updatePassword = async (req, res) => {
       success: false,
       message: "An internal server error occurred",
     });
-    console.log("Error in updatePassword route", error);
+    console.error("Error in updatePassword route", error);
   }
 };
 
@@ -402,7 +426,7 @@ export const getUserDetails = async (req, res) => {
       success: false,
       message: "An internal server error occurred",
     });
-    console.log("Error in getUserDetails route", error);
+    console.error("Error in getUserDetails route", error);
   }
 };
 
@@ -411,7 +435,7 @@ export const updateUser = async (req, res) => {
     // If there are errors, return Bad request and the errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log(errors.array());
+      console.error(errors.array());
       return res.status(400).json({
         success: false,
         message: `Validation errors - ${errors.array()[0].msg}`,
@@ -425,13 +449,15 @@ export const updateUser = async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     }
-    const { firstName, lastName, email, role, profilePic } = req.body;
+    const { firstName, lastName, email, role } = req.body;
 
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (email) user.email = email;
     if (role) user.role = role;
-    if (profilePic) user.profilePic = profilePic;
+    if (req.file) {
+      user.profilePic = await uploadToAzure(req.file, user.email);
+    }
 
     await user.save();
     res.status(200).json({ success: true, user: req.user });
@@ -440,6 +466,6 @@ export const updateUser = async (req, res) => {
       success: false,
       message: "An internal server error occurred",
     });
-    console.log("Error in updateUser route", error);
+    console.error("Error in updateUser route", error);
   }
 };

@@ -9,9 +9,9 @@ let mongoURI = process.env.MONGO_URI;
 const connectToMongo = async () => {
     try {
         await mongoose.connect(mongoURI, { dbName: "ecommerce" });
-        console.log('Connected to MongoDB');
+        console.info('Connected to MongoDB');
     } catch (error) {
-        console.log("Error in connecting to MongoDB",error);
+        console.error("Error in connecting to MongoDB",error);
     }
 }
 
