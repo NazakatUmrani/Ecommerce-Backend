@@ -3,8 +3,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import connectToMongo from './DB/db.js';
-// import notesRoutes from './Routes/notes.routes.js';
 import authRoutes from './Routes/auth.routes.js';
+import productRoutes from './Routes/product.routes.js';
 // import homeRoutes from './Routes/home.routes.js';
 
 dotenv.config();
@@ -22,7 +22,7 @@ app.use(cookieParser())
 
 // Define routes
 app.use('/api/auth', authRoutes);
-// app.use('/api/notes', notesRoutes);
+app.use('/api/products', productRoutes);
 // app.use('/', homeRoutes);
 
 // Listen on port

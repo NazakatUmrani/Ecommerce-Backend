@@ -5,7 +5,6 @@ import { generateTokenAndSetCookie } from "../Utils/generateTokenAndSetCookie.js
 import sendEmail from "../Utils/sendEmail.js";
 import jwt from "jsonwebtoken";
 import uploadToAzure from '../Utils/uploadToAzureStorage.js';
-// const crypto = require("crypto");
 
 export const signup = async (req, res) => {
   try {

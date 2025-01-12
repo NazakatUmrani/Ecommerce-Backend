@@ -14,20 +14,10 @@ import {
 } from "../Controllers/auth.controller.js";
 import authenticate from "../Middleware/authenticate.js";
 
+// Set up multer for in-memory storage
 import multer from 'multer';
-// temporary storage in 'uploads/' folder
-// Set up multer storage and filename with user's email
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); // File will be saved in 'uploads/' folder
-  },
-  filename: (req, file, cb) => {
-    const email = req.body.email || 'unknownEmail'; // Use the email from body for naming the file
-    const newFilename = `${email}`; // Name the file with user's email and timestamp
-    cb(null, newFilename);
-  },
-});
-const upload = multer({ storage }).single('profilePic'); 
+const storage = multer.memoryStorage();
+const upload = multer({ storage }).single('profilePic');
 
 const router = express.Router();
 

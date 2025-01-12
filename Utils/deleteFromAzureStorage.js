@@ -1,7 +1,6 @@
-import { BlobServiceClient } from '@azure/storage-blob';
+import { BlobServiceClient } from "@azure/storage-blob";
 
-// Function to upload a file to Azure Blob Storage
-const uploadToAzure = async (file, name) => {
+const deleteFromAzureBlob = async (fileUrl) => {
   const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
   const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
 
@@ -11,27 +10,26 @@ const uploadToAzure = async (file, name) => {
   }
 
   try {
+    // Parse the blob name from the file URL
+    const urlParts = new URL(fileUrl);
+    const blobName = urlParts.pathname.substring(containerName.length + 2); // Remove container name and the initial '/'
+
     // Create the BlobServiceClient object
     const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
     // Get a reference to the container
     const containerClient = blobServiceClient.getContainerClient(containerName);
-
-    // Generate a unique name for the blob (file)
-    const blobName = `${name}`;
-    // Get a block blob client
+    // Get a reference to the blob
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
-    // Upload the file buffer to Azure Blob Storage
-    await blockBlobClient.uploadData(file.buffer, {
-      blobHTTPHeaders: { blobContentType: file.mimetype }, // Set MIME type
-    });
+    // Delete the blob
+    await blockBlobClient.deleteIfExists();
 
-    // Return the URL of the uploaded file
-    return blockBlobClient.url;
+    console.log(`File ${blobName} deleted successfully.`);
+    return true;
   } catch (error) {
-    console.error('Error uploading file to Azure:', error);
-    throw new Error('Failed to upload file to Azure Blob Storage');
+    console.error("Error deleting file from Azure Blob Storage:", error);
+    throw new Error("Failed to delete file from Azure Blob Storage");
   }
 };
 
-export default uploadToAzure;
+export default deleteFromAzureBlob;
