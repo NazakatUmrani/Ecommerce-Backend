@@ -1,8 +1,6 @@
 import mongoose from 'mongoose';
 
-const Schema = mongoose.Schema;
-
-const ProductSchema = new Schema({
+const ProductSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true,
@@ -29,12 +27,14 @@ const ProductSchema = new Schema({
     ref: 'User',
     required: true,
   },
+  customizable: { 
+    type: Boolean,
+    default: false
+  }, // Indicates if customization is allowed
 }, { timestamps: true });
 
 function arrayLimit(val) {
   return val.length <= 5;
 }
 
-const Product = mongoose.model('product', ProductSchema);
-
-export default Product;
+export default mongoose.model('product', ProductSchema);

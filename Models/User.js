@@ -1,54 +1,50 @@
 import mongoose from "mongoose";
-const { Schema } = mongoose;
 
-const UserSchema = new Schema(
-  {
-    firstName: {
-      type: String,
-      required: true,
-    },
-    lastName: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      unique: true,
-      required: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    role: {
-      type: String,
-      default: "user",
-      enum: ["user", "seller"],
-    },
-    profilePic: {
-      type: String,
-      default: "",
-    },
-    tokenVersion: {
-      type: Number,
-      default: 1,
-    },
-    refreshToken: {
-      type: String,
-    },
-    otp: {
-      type: Number,
-    },
-    otpExpires: {
-      type: Date,
-    },
-    verified: {
-      type: Boolean,
-      default: false,
-    },
+const UserSchema = new mongoose.Schema({
+  firstName: {
+    type: String,
+    required: true,
   },
-  { timestamps: true }
-);
+  lastName: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    unique: true,
+    required: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+  role: {
+    type: String,
+    default: "user",
+    enum: ["user", "seller"],
+  },
+  profilePic: {
+    type: String,
+    default: "",
+  },
+  tokenVersion: {
+    type: Number,
+    default: 1,
+  },
+  refreshToken: {
+    type: String,
+  },
+  otp: {
+    type: Number,
+  },
+  otpExpires: {
+    type: Date,
+  },
+  verified: {
+    type: Boolean,
+    default: false,
+  },
+},{ timestamps: true });
 
 // Middleware to capitalize first letter of first and last name
 UserSchema.pre("save", async function (next) {
