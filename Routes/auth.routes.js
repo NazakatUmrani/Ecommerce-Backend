@@ -43,12 +43,20 @@ router.post(
 );
 
 // Verify signup using: POST "/api/auth/signup/verify". No Auth required
+// router.post(
+//   "/signup/verify",
+//   [
+//     body("email", "Enter a valid email").trim().isString().isEmail(),
+//     // check for string only otp
+
+//     body("otp", "OTP must be 6 digits long").trim().isNumeric().isLength({ min: 6, max: 6 }),
+//   ],
+//   verifySignup
+// );
+
 router.post(
   "/signup/verify",
   [
-    body("email", "Enter a valid email").trim().isString().isEmail(),
-    // check for string only otp
-
     body("otp", "OTP must be 6 digits long").trim().isNumeric().isLength({ min: 6, max: 6 }),
   ],
   verifySignup

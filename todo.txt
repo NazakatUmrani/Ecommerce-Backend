@@ -1,0 +1,2 @@
+Colors in product models
+date for unique name in azure blob storage

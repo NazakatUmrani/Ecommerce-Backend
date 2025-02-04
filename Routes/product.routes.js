@@ -1,7 +1,10 @@
 import express from "express";
 import { body } from "express-validator";
 import multer from 'multer';
-import { getAllProducts, getProductById } from "../Controllers/products.controller";
+import { getAllProducts, getProductById, addProduct , updateProduct , deleteProduct  } from "../Controllers/products.controller.js";
+import authenticate from "../Middleware/authenticate.js"; 
+import { addToCart } from "../Controllers/products.controller.js";
+
 
 // Set up multer for in-memory storage
 const storage = multer.memoryStorage();
@@ -22,8 +25,8 @@ router.post(
   upload,
   [
     body("title", "Title is required and must be at least 3 characters long").trim().isString().isLength({ min: 3 }),
-    body("description", "Description must be a string").trim().isString().isLength({ min: 10 }),
-    body("price", "Price must be a positive number").trim().isNumeric().isFloat({ gt: 0 }),
+    // body("description", "Description must be a string").optional().trim().isString().isLength({ min: 10 }),
+    // body("price", "Price must be a positive number").trim().isNumeric().isFloat({ gt: 0 }),
   ],
   addProduct
 );
@@ -43,6 +46,16 @@ router.put(
 
 // Delete a product: DELETE "/api/products/delete/:id". Requires Auth
 router.delete("/delete/:id",authenticate, deleteProduct);
+
+router.post(
+  "/cart",
+  authenticate,
+  [
+    body("productId", "Product ID is required").isMongoId(),
+    body("quantity", "Quantity must be a positive integer").isInt({ gt: 0 }),
+  ],
+  addToCart
+);
 
 
 export default router;

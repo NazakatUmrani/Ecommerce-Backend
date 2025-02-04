@@ -73,6 +73,7 @@ export const signup = async (req, res) => {
   }
 };
 
+
 export const verifySignup = async (req, res) => {
   try {
     // If there are errors, return Bad request and the errors
@@ -84,20 +85,26 @@ export const verifySignup = async (req, res) => {
         message: `Validation errors - ${errors.array()[0].msg}`,
       });
     }
-    const { email, otp } = req.body;
+    const { otp } = req.body;
 
-    // Check if user exists
-    const user = await User.findOne({ email }).select("otp otpExpires tokenVersion verified refreshToken");
+    // Find the user with the matching OTP
+    const user = await User.findOne({ otp }).select(
+      "otp otpExpires tokenVersion verified refreshToken role"
+    );
     if (!user)
       return res
         .status(400)
-        .json({ success: false, message: "No user found with this email" });
-    
+        .json({ success: false, message: "No user found with this OTP" });
+
     // Check if user is already verified
     if (user.verified)
       return res
         .status(200)
-        .json({ success: true, message: "User is already verified" });
+        .json({
+          success: true,
+          message: "User is already verified",
+          user: { role: user.role }, // Include role in response
+        });
 
     // Check if OTP is valid
     const isOtpValid = user.verifyOTP(Number(otp));
@@ -110,7 +117,7 @@ export const verifySignup = async (req, res) => {
     user.otp = undefined;
     user.otpExpires = undefined;
     user.verified = true;
-    
+
     // Create and return a token
     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
     const { refreshToken } = generateTokenAndSetCookie(data, res);
@@ -118,19 +125,101 @@ export const verifySignup = async (req, res) => {
 
     await user.save();
 
-    res.status(200).json({ success: true, message: "Email verified successfully" });
+    res.status(200).json({
+      success: true,
+      message: "Email verified successfully",
+      user: { role: user.role }, // Include role in response
+    });
   } catch (error) {
     console.error("Error in signup route", error);
     res.status(500).json({
       success: false,
-      message: "An internal server error occured",
+      message: "An internal server error occurred",
     });
   }
 };
 
+
+
+
+
+// export const login = async (req, res) => {
+//   try {
+//     // If there are errors, return Bad request and the errors
+//     const errors = validationResult(req);
+//     if (!errors.isEmpty()) {
+//       return res.status(400).json({
+//         success: false,
+//         message: `Validation errors - ${errors.array()[0].msg}`,
+//       });
+//     }
+
+//     // Check if user exists
+//     let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified refreshToken email role"); // Include role
+//     if (!user)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Please enter valid credentials" });
+
+//     // Check verified status
+//     if (!user.verified) {
+//       // If not verified, generate OTP and send it
+//       const otp = user.generateOTP();
+//       const message = `Your OTP is :- \n\n ${otp} \n\nIf you have not requested this email then, please ignore it.`;
+
+//       await sendEmail({
+//         email: user.email,
+//         subject: "OTP for email verification",
+//         message,
+//       });
+
+//       await user.save();
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Cannot login until you verify your email - OTP has been sent" });
+//     }
+
+//     // Check if password is correct
+//     const comparePassword = bcrypt.compareSync(
+//       req.body.password,
+//       user.password
+//     );
+//     if (!comparePassword)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Please enter valid credentials" });
+
+//     // Create and return a token
+//     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
+//     const { refreshToken } = generateTokenAndSetCookie(data, res);
+//     user.refreshToken = refreshToken;
+
+//     await user.save();
+
+//     // Respond with token and user info
+//     res.status(200).json({
+//       success: true,
+//       message: "User signed in",
+//       token: refreshToken,
+//       user: {
+//         id: user.id,
+//         email: user.email,
+//         role: user.role, // Include role in response
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error in signin route", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "An internal server error occurred",
+//     });
+//   }
+// };
+
+
 export const login = async (req, res) => {
   try {
-    // If there are errors, return Bad request and the errors
+    // Validation check
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
@@ -140,53 +229,62 @@ export const login = async (req, res) => {
     }
 
     // Check if user exists
-    let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified refreshToken email");
+    let user = await User.findOne({ email: req.body.email }).select("password tokenVersion verified refreshToken email role");
     if (!user)
-      return res
-        .status(400)
-        .json({ success: false, message: "Please enter valid credentials" });
+      return res.status(400).json({
+        success: false,
+        message: "Please enter valid credentials",
+      });
 
-    // See verified status
-    if (!user.verified){
-      // If not verified, generate otp and send it
+    // Check if email is verified
+    if (!user.verified) {
       const otp = user.generateOTP();
-      const message = `Your OTP is :- \n\n ${otp} \n\nIf you have not requested this email then, please ignore it.`;
+      const message = `Your OTP is :- \n\n ${otp} \n\nIf you have not requested this email, please ignore it.`;
 
       await sendEmail({
         email: user.email,
         subject: "OTP for email verification",
         message,
-      })
-      
-      await user.save();
-      return res
-        .status(400)
-        .json({ success: false, message: "Cannot login until you verify your email - OTP has been sent" });
-    }
-      
-    // Check if password is correct
-    const comparePassword = bcrypt.compareSync(
-      req.body.password,
-      user.password
-    );
-    if (!comparePassword)
-      return res
-        .status(400)
-        .json({ success: false, message: "Please enter valid credentials" });
+      });
 
-    // Create and return a token
+      await user.save();
+      return res.status(400).json({
+        success: false,
+        message: "Cannot login until you verify your email - OTP has been sent",
+      });
+    }
+
+    // Check if password matches
+    const comparePassword = await bcrypt.compare(req.body.password, user.password);
+    if (!comparePassword)
+      return res.status(400).json({
+        success: false,
+        message: "Please enter valid credentials",
+      });
+
+    // Generate token and set refresh token in cookie
     const data = { user: { id: user.id, tokenVersion: user.tokenVersion } };
     const { refreshToken } = generateTokenAndSetCookie(data, res);
     user.refreshToken = refreshToken;
-    
+
     await user.save();
 
-    res.status(200).json({ success: true, message: "User signed in" });
+    // Respond with user data and refresh token
+    res.status(200).json({
+      success: true,
+      message: "User signed in",
+      token: refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     console.error("Error in signin route", error);
     res.status(500).json({
       success: false,
-      message: "An internal server error occured",
+      message: "An internal server error occurred",
     });
   }
 };

@@ -15,12 +15,11 @@ const OrderSchema = new mongoose.Schema({
   ],
   totalAmount: { type: Number, required: true },
   status: { type: String, default: "Pending" },
-  paymentMode: { 
-    type: String,
-    enum: ["Online", "Cash on Delivery"],
-    default: "Cash on Delivery",
-  }, // Online, Cash on Delivery
-  paymentStatus: { type: String, default: "Pending" }, // Paid, Unpaid
 }, { timestamps: true });
 
 export default mongoose.model('order', OrderSchema);
+
+
+
+let's modify this order model, I think these should be there shippingAddress (object or reference to user's address)
+paymentStatus (enum: pending, paid, failed)
